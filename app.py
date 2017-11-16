@@ -17,6 +17,14 @@ from models import *
 app = Celery()
 app.config_from_object(celeryconfig)
 
+app.conf.beat_schedule = {
+    'method_trigger': {
+        'task': 'app.polling',
+        'schedule': 60,
+        # 'args': (16, 16)
+    },
+}
+
 try:
     with open('constant.json', 'r') as f:
         settings = json.load(f)
@@ -112,6 +120,7 @@ class TimeManager(object):
         return dt.astimezone(TimeManager.TIMEZONE_UTC)
 
 
+@app.task
 def polling():
     notice_list = crawling_CS_notice_list()
     for i in notice_list:
