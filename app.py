@@ -170,7 +170,6 @@ def crawling_CS_article(data):
     data['date'] = datetime.datetime.strptime(data['date'], '%y.%m.%d')
     data['find_at'] = TimeManager.get_now_datetime()
 
-    print(data)
     return insert_post_data(data)
 
 
@@ -192,5 +191,4 @@ def _create_db():
 
 
 if __name__ == '__main__':
-    # _create_db()
-    polling()
+    _create_db()
