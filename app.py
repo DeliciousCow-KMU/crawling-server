@@ -116,9 +116,9 @@ def polling():
     notice_list = crawling_CS_notice_list()
     for i in notice_list:
         with SQL.get_session() as session:
-            if not session.query(Post)\
-                    .filter(Post.post_id == i['post_id'])\
-                    .filter(Post.division == '소프트웨어융합대학')\
+            if not session.query(Post) \
+                    .filter(Post.post_id == i['post_id']) \
+                    .filter(Post.division == '소프트웨어융합대학') \
                     .first():
                 crawling_CS_article.delay(i)
 
@@ -154,7 +154,7 @@ def crawling_CS_notice_list():
 
 
 @app.task
-def crawling_CS_article(data: dict):
+def crawling_CS_article(data):
     url = data.get('url')
     with requests.get(url) as response:
         html = response.text
