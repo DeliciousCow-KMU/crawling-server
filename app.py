@@ -9,6 +9,7 @@ import json
 import datetime
 import time
 import locale
+import re
 
 import celeryconfig
 import sqlalchemy_session
@@ -122,6 +123,12 @@ class TimeManager(object):
 
 @app.task
 def polling():
+    polling_CS.dealy()
+    polling_MIS.delay()
+
+
+@app.task
+def polling_CS():
     notice_list = crawling_CS_notice_list()
     for i in notice_list:
         with SQL.get_session() as session:
@@ -130,6 +137,18 @@ def polling():
                     .filter(Post.division == '소프트웨어융합대학') \
                     .first():
                 crawling_CS_article.delay(i)
+
+
+@app.task
+def polling_MIS():
+    notice_list = crawling_MIS_notice_list()
+    for i in notice_list:
+        with SQL.get_session() as session:
+            if not session.query(Post) \
+                    .filter(Post.post_id == i['post_id']) \
+                    .filter(Post.division == '경영정보학부') \
+                    .first():
+                crawling_MIS_article.delay(i)
 
 
 def crawling_CS_notice_list():
@@ -182,9 +201,71 @@ def crawling_CS_article(data):
     return insert_post_data(data)
 
 
+def crawling_MIS_notice_list():
+    results = []
+    crawled = set()
+    url = 'http://mis.kookmin.ac.kr/board/notice/notice.list.jsp'
+    with requests.get(url) as response:
+        html = response.text
+
+    soup = BeautifulSoup(html, 'html.parser')
+
+    table = soup.find('div', {'class': 'bbs-list-box'})
+
+    for tr in table.find_all('tr'):
+        divs = tr.find_all('div', {'class': 'bbs-list-data'})
+        if not divs:
+            continue
+
+        data = dict(url=None, important=False, post_id=None, division='경영정보학부')
+
+        if divs[0].find('span'):
+            if divs[0].text.strip() == '공지':
+                data['important'] = True
+
+        a_tag = divs[1].find('a')
+        if not a_tag:
+            continue
+
+        rex = re.match(r'javascript:viewThis[(](\d+?)[)];', a_tag.get('href'))
+        data['post_id'] = rex.group(1)
+
+        if data['post_id'] in crawled:
+            continue
+        else:
+            crawled.add(data['post_id'])
+
+        data['url'] = 'http://mis.kookmin.ac.kr/board/notice/notice.view.jsp?seq={}&boardCode=notice'.format(
+            data['post_id'])
+        data['title'] = a_tag.text.strip()
+
+        data['author'] = divs[2].text.strip()
+        data['date'] = divs[3].text.strip()  # %Y-%m-%d
+
+        results.append(data)
+
+    return results
+
+
+@app.task
+def crawling_MIS_article(data):
+    url = 'http://mis.kookmin.ac.kr/common/jsp/boardContents.jsp?boardCode=notice&seq=' + data.get('post_id')
+    with requests.get(url) as response:
+        html = response.text
+
+    soup = BeautifulSoup(html, 'html.parser')
+    body = soup.find('body')
+
+    data['text'] = body.text.replace('\xa0', ' ').strip()
+    data['find_at'] = TimeManager.get_now_datetime()
+
+    return insert_post_data(data)
+
+
 def insert_post_data(data: dict):
     with SQL.get_session() as session:
-        model = Post(title=data['title'], post_id=data['post_id'], department=data['department'], author=data['author'],
+        model = Post(title=data['title'], post_id=data['post_id'], department=data.get('department'),
+                     author=data['author'],
                      text=data['text'], find_at=data['find_at'], date=data['date'],
                      important=data.get('important', False), url=data['url'], division=data['division'])
         session.add(model)
