@@ -123,7 +123,7 @@ class TimeManager(object):
 
 @app.task
 def polling():
-    polling_CS.dealy()
+    polling_CS.delay()
     polling_MIS.delay()
 
 
