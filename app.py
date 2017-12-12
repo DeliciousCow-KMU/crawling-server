@@ -134,7 +134,7 @@ def polling_CS():
         with SQL.get_session() as session:
             if not session.query(Post) \
                     .filter(Post.post_id == i['post_id']) \
-                    .filter(Post.division == '소프트웨어융합대학') \
+                    .filter(Post.department == '소프트웨어융합대학') \
                     .first():
                 crawling_CS_article.delay(i)
 
@@ -146,7 +146,7 @@ def polling_MIS():
         with SQL.get_session() as session:
             if not session.query(Post) \
                     .filter(Post.post_id == i['post_id']) \
-                    .filter(Post.division == '경영정보학부') \
+                    .filter(Post.department == '경영정보학부') \
                     .first():
                 crawling_MIS_article.delay(i)
 
@@ -164,7 +164,7 @@ def crawling_CS_notice_list():
         tbody = table.find('div', {'class': 'list-tbody'})
         if tbody:
             for item in tbody.find_all('ul'):
-                data = dict(url=None, important=False, post_id=None, division='소프트웨어융합대학')
+                data = dict(url=None, important=False, post_id=None, department='소프트웨어융합대학')
 
                 if 'notice-bg' in item.attrs.get('class'):
                     data['important'] = True
@@ -193,7 +193,7 @@ def crawling_CS_article(data):
     trs = table.find_all('tr')
 
     data['title'] = trs[0].find('td', {'class': 'view-title'}).text
-    data['date'], data['department'], data['author'] = (td.text for td in trs[1].find_all('td'))
+    data['date'], data['division'], data['author'] = (td.text for td in trs[1].find_all('td'))
     data['text'] = trs[3].find('div', {'id': 'view-detail-data'}).text.replace('\xa0', ' ').strip()
     data['date'] = datetime.datetime.strptime(data['date'], '%y.%m.%d')
     data['find_at'] = TimeManager.get_now_datetime()
@@ -217,7 +217,7 @@ def crawling_MIS_notice_list():
         if not divs:
             continue
 
-        data = dict(url=None, important=False, post_id=None, division='경영정보학부')
+        data = dict(url=None, important=False, post_id=None, department='경영정보학부')
 
         if divs[0].find('span'):
             if divs[0].text.strip() == '공지':
@@ -267,7 +267,7 @@ def insert_post_data(data: dict):
         model = Post(title=data['title'], post_id=data['post_id'], department=data.get('department'),
                      author=data['author'],
                      text=data['text'], find_at=data['find_at'], date=data['date'],
-                     important=data.get('important', False), url=data['url'], division=data['division'])
+                     important=data.get('important', False), url=data['url'], division=data.get('division'))
         session.add(model)
         session.commit()
 
